@@ -1,0 +1,153 @@
+---
+title: "Random Forest Classification of SARS-CoV-2 mutations"
+author: "W.H.Jang"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Random Forest Classification of SARS-CoV-2 mutations
+
+## 1. Import Packages & Retrieve Data
+
+```{r import_packages, message=FALSE, warning=FALSE}
+library(ranger)   # a fast c++ implementation of randomforest
+library(rpart)
+library(caret)
+library(dplyr)
+library(rattle)
+library(RColorBrewer)
+library(broom)
+```
+
+```{r retrieve_data}
+data <- read.csv('../../data/after_preprocessing/location_mutation.csv')
+head(data)
+```
+
+
+## 2. Preprocessing
+
+```{r, remove_x}
+# remove column x
+data <- data[, !names(data) %in% c("X")]
+head(data)
+```
+
+```{r, change_dtype}
+# change the type of values into logical
+
+mutations <- colnames(data[, !names(data) %in% c("Geo_Location")])
+
+for (mutation in mutations){
+  data[mutation] <- as.integer(as.logical(unlist(data[mutation])))
+}
+
+# change the type of location values into factor
+data["Geo_Location"] <- as.factor(unlist(data["Geo_Location"]))
+
+head(data)
+```
+
+```{r, train_test_split}
+# divide test and train data, stratified by column Geo_Location
+
+set.seed(52)  # for data reproducability
+ratio = 0.8 # train ratio
+
+train.index <- createDataPartition(data$Geo_Location, p = ratio, list = FALSE)
+train <- data[ train.index,]
+test  <- data[-train.index,]
+
+# length of train, test data
+length(train$Geo_Location)
+length(test$Geo_Location)
+```
+
+```{r, divide_xy}
+# divide dependent variables
+xtrain <- train[, !names(train) %in% c("Geo_Location")]
+ytrain <- train$Geo_Location
+
+xtest <- test[, !names(test) %in% c("Geo_Location")]
+ytest <- test$Geo_Location
+
+head(xtrain)
+```
+## 3. Random Forest
+Confusion Matrix, Feature Importances
+
+1) Training the model
+
+```{r, model}
+
+model <- ranger(
+  formula         = Geo_Location ~ ., 
+  data            = train, 
+  num.trees       = 500,
+  mtry            = 20,
+  min.node.size   = 2,
+  sample.fraction = 0.8,
+  importance      = 'impurity',
+  seed            = 71)
+
+print(model)
+```
+
+Our model has an OOB Error rate of 10%.
+
+```{r, test_error}
+
+pred <- predict(model, test)
+test_error <- sum(pred$predictions != ytest) / length(ytest) * 100
+print(test_error)
+```
+
+The Test Error Rate is also around 10%.
+
+```{r, confusion_matrix}
+model$confusion.matrix
+```
+
+Due to an imbalanced data set, misclassiciation occurs in the category "Asia & Europe & Africa". Further testing with a balanced dataset is needed.
+
+```{r, feature_importance, warning=FALSE}
+model$variable.importance %>% 
+  tidy() %>%
+  dplyr::arrange(desc(x)) %>%
+  dplyr::top_n(10) %>%
+  ggplot(aes(reorder(names, x), x)) +
+  geom_col() +
+  coord_flip() +
+  ggtitle("Top 10 important variables")
+```
+
+It seems like S477N is the most important variable in predicting the location of the sampling area.
+
+## 4. Classification And Regression Tree (CART) model: For Visualization
+Pruned Tree Representation: for better visualization
+
+```{r}
+tree <- rpart(
+  Geo_Location ~., 
+  data = train, 
+  method = "anova"
+)
+
+print(tree)
+```
+
+```{r}
+fancyRpartPlot(tree, caption = NULL)
+```
+

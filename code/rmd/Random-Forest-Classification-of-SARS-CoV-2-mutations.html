@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<meta name="author" content="W.H.Jang" />
+
+<meta name="date" content="2021-05-31" />
+
+<title>Random Forest Classification of SARS-CoV-2 mutations</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+
+<style type="text/css">
+  code {
+    white-space: pre;
+  }
+  .sourceCode {
+    overflow: visible;
+  }
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    for (var j = 0; j < rules.length; j++) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") continue;
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') continue;
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Random Forest Classification of SARS-CoV-2 mutations</h1>
+<h4 class="author">W.H.Jang</h4>
+<h4 class="date">2021-05-31</h4>
+
+
+
+<div id="random-forest-classification-of-sars-cov-2-mutations" class="section level1">
+<h1>Random Forest Classification of SARS-CoV-2 mutations</h1>
+<div id="import-packages-retrieve-data" class="section level2">
+<h2>1. Import Packages &amp; Retrieve Data</h2>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ranger)   <span class="co"># a fast c++ implementation of randomforest</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(rpart)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(caret)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(rattle)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(RColorBrewer)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(broom)</span></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>data <span class="ot">&lt;-</span> <span class="fu">read.csv</span>(<span class="st">&#39;../../data/after_preprocessing/location_mutation.csv&#39;</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(data)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   X A1020V A1070S A1078S A222V A243S A263S  A27S  A27V A475S A520S A522S A522V</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 0  False  False  False False False False False False False False False False</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 1  False  False  False False False False False False False False False False</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3 2  False  False  False False False False False False False False False False</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4 3  False  False  False False False False False False False False False False</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5 4  False  False  False False False False False False False False False False</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6 5  False  False  False False False False False False False False False False</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   A570D  A67S A688V A701V A845D A845S A879S A930V D1118H D1118Y D111N D1163Y</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 False False False False False False False False  False  False False  False</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 False False False False False False False False  False  False False  False</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3 False False False False False False False False  False  False False  False</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4 False False False False False False False False  False  False False  False</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5 False False False False False False False False  False  False False  False</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6 False False False False False False False False  False  False False  False</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   D138H D138Y D178N D215Y D253G D614G  D80Y D936N D936Y E1144Q E1202Q E180V</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 False False False False False  True False False False  False  False False</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 False False False False False  True False False False  False  False False</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3 False False False False False  True False False False  False  False False</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4 False False False False False  True False False False  False  False False</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5 False False False False False  True False False False  False   True False</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6 False False False False False  True False False False  False   True False</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   E484K E583D E780Q F220L  F32L G1124V G1219C G142S G181R G252V  G72R  G75V</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 False False False False False  False  False False False False False False</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 False False False False False  False  False False False False False False</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3 False False False False False  False  False False False False False False</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4 False False False False False  False  False False False False False False</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5 False False False False False  False  False False False False False False</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6 False False False False False  False  False False False False False False</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   G769V  Geo_Location H1101Y H245Y  H49Y H655Y  H69Y K1073N K1191N L176F  L18F</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 False North America  False False False False False  False  False False False</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 False North America  False False False False False  False  False False False</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3 False North America  False False False False False  False  False False False</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4 False North America  False False False False False  False  False False False</span></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5 False North America  False False False False False  False  False False False</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6 False North America  False False False False False  False  False False False</span></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   L452R  L54F   L5F L822F M1229I M1237I M153I M177I N1187Y N501T N501Y N679K</span></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 False False False False  False  False False False  False False False False</span></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 False False False False  False  False False False  False  True False False</span></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3 False False False False   True  False False False  False False False False</span></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4 False False False False  False  False False False  False False False False</span></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5 False False False False  False  False False False  False False False False</span></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6 False False False False  False  False False False  False False False False</span></span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   P1112L P1162S P1263L  P26L  P26S P330S P631S P681H P681L P681R P812L  Q14H</span></span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1  False  False  False False False False False False False False False False</span></span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2  False  False  False False False False False False False False False False</span></span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3  False  False  False False False False False False False False False False</span></span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4  False  False  False False False False False False False False False False</span></span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5  False  False  False False False False False False False False False False</span></span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6  False  False  False False False False False False False False False False</span></span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   Q173K  Q52H Q613H Q675H Q675R Q677H Q677P Q677R S1252F  S12F  S13I S221L</span></span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 False False False False False False False False  False False False False</span></span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 False False False False False False False False  False False False False</span></span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3 False False False False False False False False  False False False False</span></span>
+<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4 False False False False False False False False  False False False False</span></span>
+<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5 False False False False False  True False False  False False False False</span></span>
+<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6 False False False False False  True False False  False False False False</span></span>
+<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   S254F S256L S477N S494P S640F S698L S939F S982A  S98F T1027I T1117I  T20I</span></span>
+<span id="cb2-60"><a href="#cb2-60" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 False False False False False False False False False  False  False False</span></span>
+<span id="cb2-61"><a href="#cb2-61" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 False False False False False False False False False  False  False False</span></span>
+<span id="cb2-62"><a href="#cb2-62" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3 False False False False False False False False False  False  False False</span></span>
+<span id="cb2-63"><a href="#cb2-63" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4 False False False False False False False False False  False  False False</span></span>
+<span id="cb2-64"><a href="#cb2-64" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5 False False False False False False False False False  False  False False</span></span>
+<span id="cb2-65"><a href="#cb2-65" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6 False False False False False False False False False  False  False False</span></span>
+<span id="cb2-66"><a href="#cb2-66" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    T22I  T29I T307I T478K T572I T632N T716I T732A T732S T747I  T76I T778I T859I</span></span>
+<span id="cb2-67"><a href="#cb2-67" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 False False False False False False False False False False False False False</span></span>
+<span id="cb2-68"><a href="#cb2-68" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 False False False False False False False False False False False False False</span></span>
+<span id="cb2-69"><a href="#cb2-69" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3 False False False False False False False False False False False False False</span></span>
+<span id="cb2-70"><a href="#cb2-70" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4 False False False False False False False False False False False False False</span></span>
+<span id="cb2-71"><a href="#cb2-71" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5 False False False False False False False False  True False False False False</span></span>
+<span id="cb2-72"><a href="#cb2-72" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6 False False False False False False False False  True False False False False</span></span>
+<span id="cb2-73"><a href="#cb2-73" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    T95I V1104L V1122L V1164F V1176F V1228L V1264L V308L V320I V382L V483A   V6F</span></span>
+<span id="cb2-74"><a href="#cb2-74" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 False  False  False  False  False  False  False False False False False False</span></span>
+<span id="cb2-75"><a href="#cb2-75" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 False  False  False  False  False  False  False False False False False False</span></span>
+<span id="cb2-76"><a href="#cb2-76" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3 False  False  False  False  False  False  False False False False False False</span></span>
+<span id="cb2-77"><a href="#cb2-77" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4 False  False  False  False  False  False  False False False False False False</span></span>
+<span id="cb2-78"><a href="#cb2-78" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5 False  False  False  False  False  False  False False False False False False</span></span>
+<span id="cb2-79"><a href="#cb2-79" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6 False  False  False  False  False  False  False False False False False False</span></span>
+<span id="cb2-80"><a href="#cb2-80" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   W152C W152L W258L</span></span>
+<span id="cb2-81"><a href="#cb2-81" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 False False False</span></span>
+<span id="cb2-82"><a href="#cb2-82" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 False False False</span></span>
+<span id="cb2-83"><a href="#cb2-83" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3 False False False</span></span>
+<span id="cb2-84"><a href="#cb2-84" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4 False False False</span></span>
+<span id="cb2-85"><a href="#cb2-85" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5 False False False</span></span>
+<span id="cb2-86"><a href="#cb2-86" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6 False False False</span></span></code></pre></div>
+</div>
+<div id="preprocessing" class="section level2">
+<h2>2. Preprocessing</h2>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># remove column x</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>data <span class="ot">&lt;-</span> data[, <span class="sc">!</span><span class="fu">names</span>(data) <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">&quot;X&quot;</span>)]</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(data)</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   A1020V A1070S A1078S A222V A243S A263S  A27S  A27V A475S A520S A522S A522V</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1  False  False  False False False False False False False False False False</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2  False  False  False False False False False False False False False False</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3  False  False  False False False False False False False False False False</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4  False  False  False False False False False False False False False False</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5  False  False  False False False False False False False False False False</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6  False  False  False False False False False False False False False False</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   A570D  A67S A688V A701V A845D A845S A879S A930V D1118H D1118Y D111N D1163Y</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 False False False False False False False False  False  False False  False</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 False False False False False False False False  False  False False  False</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3 False False False False False False False False  False  False False  False</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4 False False False False False False False False  False  False False  False</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5 False False False False False False False False  False  False False  False</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6 False False False False False False False False  False  False False  False</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   D138H D138Y D178N D215Y D253G D614G  D80Y D936N D936Y E1144Q E1202Q E180V</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 False False False False False  True False False False  False  False False</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 False False False False False  True False False False  False  False False</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3 False False False False False  True False False False  False  False False</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4 False False False False False  True False False False  False  False False</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5 False False False False False  True False False False  False   True False</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6 False False False False False  True False False False  False   True False</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   E484K E583D E780Q F220L  F32L G1124V G1219C G142S G181R G252V  G72R  G75V</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 False False False False False  False  False False False False False False</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 False False False False False  False  False False False False False False</span></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3 False False False False False  False  False False False False False False</span></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4 False False False False False  False  False False False False False False</span></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5 False False False False False  False  False False False False False False</span></span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6 False False False False False  False  False False False False False False</span></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   G769V  Geo_Location H1101Y H245Y  H49Y H655Y  H69Y K1073N K1191N L176F  L18F</span></span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 False North America  False False False False False  False  False False False</span></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 False North America  False False False False False  False  False False False</span></span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3 False North America  False False False False False  False  False False False</span></span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4 False North America  False False False False False  False  False False False</span></span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5 False North America  False False False False False  False  False False False</span></span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6 False North America  False False False False False  False  False False False</span></span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   L452R  L54F   L5F L822F M1229I M1237I M153I M177I N1187Y N501T N501Y N679K</span></span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 False False False False  False  False False False  False False False False</span></span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 False False False False  False  False False False  False  True False False</span></span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3 False False False False   True  False False False  False False False False</span></span>
+<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4 False False False False  False  False False False  False False False False</span></span>
+<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5 False False False False  False  False False False  False False False False</span></span>
+<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6 False False False False  False  False False False  False False False False</span></span>
+<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   P1112L P1162S P1263L  P26L  P26S P330S P631S P681H P681L P681R P812L  Q14H</span></span>
+<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1  False  False  False False False False False False False False False False</span></span>
+<span id="cb3-48"><a href="#cb3-48" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2  False  False  False False False False False False False False False False</span></span>
+<span id="cb3-49"><a href="#cb3-49" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3  False  False  False False False False False False False False False False</span></span>
+<span id="cb3-50"><a href="#cb3-50" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4  False  False  False False False False False False False False False False</span></span>
+<span id="cb3-51"><a href="#cb3-51" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5  False  False  False False False False False False False False False False</span></span>
+<span id="cb3-52"><a href="#cb3-52" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6  False  False  False False False False False False False False False False</span></span>
+<span id="cb3-53"><a href="#cb3-53" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   Q173K  Q52H Q613H Q675H Q675R Q677H Q677P Q677R S1252F  S12F  S13I S221L</span></span>
+<span id="cb3-54"><a href="#cb3-54" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 False False False False False False False False  False False False False</span></span>
+<span id="cb3-55"><a href="#cb3-55" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 False False False False False False False False  False False False False</span></span>
+<span id="cb3-56"><a href="#cb3-56" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3 False False False False False False False False  False False False False</span></span>
+<span id="cb3-57"><a href="#cb3-57" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4 False False False False False False False False  False False False False</span></span>
+<span id="cb3-58"><a href="#cb3-58" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5 False False False False False  True False False  False False False False</span></span>
+<span id="cb3-59"><a href="#cb3-59" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6 False False False False False  True False False  False False False False</span></span>
+<span id="cb3-60"><a href="#cb3-60" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   S254F S256L S477N S494P S640F S698L S939F S982A  S98F T1027I T1117I  T20I</span></span>
+<span id="cb3-61"><a href="#cb3-61" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 False False False False False False False False False  False  False False</span></span>
+<span id="cb3-62"><a href="#cb3-62" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 False False False False False False False False False  False  False False</span></span>
+<span id="cb3-63"><a href="#cb3-63" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3 False False False False False False False False False  False  False False</span></span>
+<span id="cb3-64"><a href="#cb3-64" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4 False False False False False False False False False  False  False False</span></span>
+<span id="cb3-65"><a href="#cb3-65" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5 False False False False False False False False False  False  False False</span></span>
+<span id="cb3-66"><a href="#cb3-66" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6 False False False False False False False False False  False  False False</span></span>
+<span id="cb3-67"><a href="#cb3-67" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    T22I  T29I T307I T478K T572I T632N T716I T732A T732S T747I  T76I T778I T859I</span></span>
+<span id="cb3-68"><a href="#cb3-68" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 False False False False False False False False False False False False False</span></span>
+<span id="cb3-69"><a href="#cb3-69" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 False False False False False False False False False False False False False</span></span>
+<span id="cb3-70"><a href="#cb3-70" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3 False False False False False False False False False False False False False</span></span>
+<span id="cb3-71"><a href="#cb3-71" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4 False False False False False False False False False False False False False</span></span>
+<span id="cb3-72"><a href="#cb3-72" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5 False False False False False False False False  True False False False False</span></span>
+<span id="cb3-73"><a href="#cb3-73" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6 False False False False False False False False  True False False False False</span></span>
+<span id="cb3-74"><a href="#cb3-74" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    T95I V1104L V1122L V1164F V1176F V1228L V1264L V308L V320I V382L V483A   V6F</span></span>
+<span id="cb3-75"><a href="#cb3-75" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 False  False  False  False  False  False  False False False False False False</span></span>
+<span id="cb3-76"><a href="#cb3-76" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 False  False  False  False  False  False  False False False False False False</span></span>
+<span id="cb3-77"><a href="#cb3-77" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3 False  False  False  False  False  False  False False False False False False</span></span>
+<span id="cb3-78"><a href="#cb3-78" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4 False  False  False  False  False  False  False False False False False False</span></span>
+<span id="cb3-79"><a href="#cb3-79" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5 False  False  False  False  False  False  False False False False False False</span></span>
+<span id="cb3-80"><a href="#cb3-80" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6 False  False  False  False  False  False  False False False False False False</span></span>
+<span id="cb3-81"><a href="#cb3-81" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   W152C W152L W258L</span></span>
+<span id="cb3-82"><a href="#cb3-82" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 False False False</span></span>
+<span id="cb3-83"><a href="#cb3-83" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 False False False</span></span>
+<span id="cb3-84"><a href="#cb3-84" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3 False False False</span></span>
+<span id="cb3-85"><a href="#cb3-85" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4 False False False</span></span>
+<span id="cb3-86"><a href="#cb3-86" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5 False False False</span></span>
+<span id="cb3-87"><a href="#cb3-87" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6 False False False</span></span></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># change the type of values into logical</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>mutations <span class="ot">&lt;-</span> <span class="fu">colnames</span>(data[, <span class="sc">!</span><span class="fu">names</span>(data) <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">&quot;Geo_Location&quot;</span>)])</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (mutation <span class="cf">in</span> mutations){</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  data[mutation] <span class="ot">&lt;-</span> <span class="fu">as.integer</span>(<span class="fu">as.logical</span>(<span class="fu">unlist</span>(data[mutation])))</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="co"># change the type of location values into factor</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>data[<span class="st">&quot;Geo_Location&quot;</span>] <span class="ot">&lt;-</span> <span class="fu">as.factor</span>(<span class="fu">unlist</span>(data[<span class="st">&quot;Geo_Location&quot;</span>]))</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(data)</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   A1020V A1070S A1078S A222V A243S A263S A27S A27V A475S A520S A522S A522V</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1      0      0      0     0     0     0    0    0     0     0     0     0</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2      0      0      0     0     0     0    0    0     0     0     0     0</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3      0      0      0     0     0     0    0    0     0     0     0     0</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4      0      0      0     0     0     0    0    0     0     0     0     0</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5      0      0      0     0     0     0    0    0     0     0     0     0</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6      0      0      0     0     0     0    0    0     0     0     0     0</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   A570D A67S A688V A701V A845D A845S A879S A930V D1118H D1118Y D111N D1163Y</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1     0    0     0     0     0     0     0     0      0      0     0      0</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2     0    0     0     0     0     0     0     0      0      0     0      0</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3     0    0     0     0     0     0     0     0      0      0     0      0</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4     0    0     0     0     0     0     0     0      0      0     0      0</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5     0    0     0     0     0     0     0     0      0      0     0      0</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6     0    0     0     0     0     0     0     0      0      0     0      0</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   D138H D138Y D178N D215Y D253G D614G D80Y D936N D936Y E1144Q E1202Q E180V</span></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1     0     0     0     0     0     1    0     0     0      0      0     0</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2     0     0     0     0     0     1    0     0     0      0      0     0</span></span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3     0     0     0     0     0     1    0     0     0      0      0     0</span></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4     0     0     0     0     0     1    0     0     0      0      0     0</span></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5     0     0     0     0     0     1    0     0     0      0      1     0</span></span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6     0     0     0     0     0     1    0     0     0      0      1     0</span></span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   E484K E583D E780Q F220L F32L G1124V G1219C G142S G181R G252V G72R G75V G769V</span></span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1     0     0     0     0    0      0      0     0     0     0    0    0     0</span></span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2     0     0     0     0    0      0      0     0     0     0    0    0     0</span></span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3     0     0     0     0    0      0      0     0     0     0    0    0     0</span></span>
+<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4     0     0     0     0    0      0      0     0     0     0    0    0     0</span></span>
+<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5     0     0     0     0    0      0      0     0     0     0    0    0     0</span></span>
+<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6     0     0     0     0    0      0      0     0     0     0    0    0     0</span></span>
+<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    Geo_Location H1101Y H245Y H49Y H655Y H69Y K1073N K1191N L176F L18F L452R</span></span>
+<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 North America      0     0    0     0    0      0      0     0    0     0</span></span>
+<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 North America      0     0    0     0    0      0      0     0    0     0</span></span>
+<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3 North America      0     0    0     0    0      0      0     0    0     0</span></span>
+<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4 North America      0     0    0     0    0      0      0     0    0     0</span></span>
+<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5 North America      0     0    0     0    0      0      0     0    0     0</span></span>
+<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6 North America      0     0    0     0    0      0      0     0    0     0</span></span>
+<span id="cb4-48"><a href="#cb4-48" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   L54F L5F L822F M1229I M1237I M153I M177I N1187Y N501T N501Y N679K P1112L</span></span>
+<span id="cb4-49"><a href="#cb4-49" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1    0   0     0      0      0     0     0      0     0     0     0      0</span></span>
+<span id="cb4-50"><a href="#cb4-50" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2    0   0     0      0      0     0     0      0     1     0     0      0</span></span>
+<span id="cb4-51"><a href="#cb4-51" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3    0   0     0      1      0     0     0      0     0     0     0      0</span></span>
+<span id="cb4-52"><a href="#cb4-52" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4    0   0     0      0      0     0     0      0     0     0     0      0</span></span>
+<span id="cb4-53"><a href="#cb4-53" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5    0   0     0      0      0     0     0      0     0     0     0      0</span></span>
+<span id="cb4-54"><a href="#cb4-54" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6    0   0     0      0      0     0     0      0     0     0     0      0</span></span>
+<span id="cb4-55"><a href="#cb4-55" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   P1162S P1263L P26L P26S P330S P631S P681H P681L P681R P812L Q14H Q173K Q52H</span></span>
+<span id="cb4-56"><a href="#cb4-56" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1      0      0    0    0     0     0     0     0     0     0    0     0    0</span></span>
+<span id="cb4-57"><a href="#cb4-57" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2      0      0    0    0     0     0     0     0     0     0    0     0    0</span></span>
+<span id="cb4-58"><a href="#cb4-58" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3      0      0    0    0     0     0     0     0     0     0    0     0    0</span></span>
+<span id="cb4-59"><a href="#cb4-59" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4      0      0    0    0     0     0     0     0     0     0    0     0    0</span></span>
+<span id="cb4-60"><a href="#cb4-60" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5      0      0    0    0     0     0     0     0     0     0    0     0    0</span></span>
+<span id="cb4-61"><a href="#cb4-61" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6      0      0    0    0     0     0     0     0     0     0    0     0    0</span></span>
+<span id="cb4-62"><a href="#cb4-62" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   Q613H Q675H Q675R Q677H Q677P Q677R S1252F S12F S13I S221L S254F S256L S477N</span></span>
+<span id="cb4-63"><a href="#cb4-63" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1     0     0     0     0     0     0      0    0    0     0     0     0     0</span></span>
+<span id="cb4-64"><a href="#cb4-64" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2     0     0     0     0     0     0      0    0    0     0     0     0     0</span></span>
+<span id="cb4-65"><a href="#cb4-65" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3     0     0     0     0     0     0      0    0    0     0     0     0     0</span></span>
+<span id="cb4-66"><a href="#cb4-66" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4     0     0     0     0     0     0      0    0    0     0     0     0     0</span></span>
+<span id="cb4-67"><a href="#cb4-67" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5     0     0     0     1     0     0      0    0    0     0     0     0     0</span></span>
+<span id="cb4-68"><a href="#cb4-68" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6     0     0     0     1     0     0      0    0    0     0     0     0     0</span></span>
+<span id="cb4-69"><a href="#cb4-69" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   S494P S640F S698L S939F S982A S98F T1027I T1117I T20I T22I T29I T307I T478K</span></span>
+<span id="cb4-70"><a href="#cb4-70" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1     0     0     0     0     0    0      0      0    0    0    0     0     0</span></span>
+<span id="cb4-71"><a href="#cb4-71" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2     0     0     0     0     0    0      0      0    0    0    0     0     0</span></span>
+<span id="cb4-72"><a href="#cb4-72" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3     0     0     0     0     0    0      0      0    0    0    0     0     0</span></span>
+<span id="cb4-73"><a href="#cb4-73" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4     0     0     0     0     0    0      0      0    0    0    0     0     0</span></span>
+<span id="cb4-74"><a href="#cb4-74" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5     0     0     0     0     0    0      0      0    0    0    0     0     0</span></span>
+<span id="cb4-75"><a href="#cb4-75" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6     0     0     0     0     0    0      0      0    0    0    0     0     0</span></span>
+<span id="cb4-76"><a href="#cb4-76" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   T572I T632N T716I T732A T732S T747I T76I T778I T859I T95I V1104L V1122L</span></span>
+<span id="cb4-77"><a href="#cb4-77" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1     0     0     0     0     0     0    0     0     0    0      0      0</span></span>
+<span id="cb4-78"><a href="#cb4-78" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2     0     0     0     0     0     0    0     0     0    0      0      0</span></span>
+<span id="cb4-79"><a href="#cb4-79" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3     0     0     0     0     0     0    0     0     0    0      0      0</span></span>
+<span id="cb4-80"><a href="#cb4-80" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4     0     0     0     0     0     0    0     0     0    0      0      0</span></span>
+<span id="cb4-81"><a href="#cb4-81" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5     0     0     0     0     1     0    0     0     0    0      0      0</span></span>
+<span id="cb4-82"><a href="#cb4-82" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6     0     0     0     0     1     0    0     0     0    0      0      0</span></span>
+<span id="cb4-83"><a href="#cb4-83" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   V1164F V1176F V1228L V1264L V308L V320I V382L V483A V6F W152C W152L W258L</span></span>
+<span id="cb4-84"><a href="#cb4-84" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1      0      0      0      0     0     0     0     0   0     0     0     0</span></span>
+<span id="cb4-85"><a href="#cb4-85" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2      0      0      0      0     0     0     0     0   0     0     0     0</span></span>
+<span id="cb4-86"><a href="#cb4-86" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3      0      0      0      0     0     0     0     0   0     0     0     0</span></span>
+<span id="cb4-87"><a href="#cb4-87" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4      0      0      0      0     0     0     0     0   0     0     0     0</span></span>
+<span id="cb4-88"><a href="#cb4-88" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5      0      0      0      0     0     0     0     0   0     0     0     0</span></span>
+<span id="cb4-89"><a href="#cb4-89" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6      0      0      0      0     0     0     0     0   0     0     0     0</span></span></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># divide test and train data, stratified by column Geo_Location</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">52</span>)  <span class="co"># for data reproducability</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>ratio <span class="ot">=</span> <span class="fl">0.8</span> <span class="co"># train ratio</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>train.index <span class="ot">&lt;-</span> <span class="fu">createDataPartition</span>(data<span class="sc">$</span>Geo_Location, <span class="at">p =</span> ratio, <span class="at">list =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>train <span class="ot">&lt;-</span> data[ train.index,]</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>test  <span class="ot">&lt;-</span> data[<span class="sc">-</span>train.index,]</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="co"># length of train, test data</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="fu">length</span>(train<span class="sc">$</span>Geo_Location)</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 32668</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="fu">length</span>(test<span class="sc">$</span>Geo_Location)</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 8165</span></span></code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># divide dependent variables</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>xtrain <span class="ot">&lt;-</span> train[, <span class="sc">!</span><span class="fu">names</span>(train) <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">&quot;Geo_Location&quot;</span>)]</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>ytrain <span class="ot">&lt;-</span> train<span class="sc">$</span>Geo_Location</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>xtest <span class="ot">&lt;-</span> test[, <span class="sc">!</span><span class="fu">names</span>(test) <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">&quot;Geo_Location&quot;</span>)]</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>ytest <span class="ot">&lt;-</span> test<span class="sc">$</span>Geo_Location</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(xtrain)</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    A1020V A1070S A1078S A222V A243S A263S A27S A27V A475S A520S A522S A522V</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1       0      0      0     0     0     0    0    0     0     0     0     0</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2       0      0      0     0     0     0    0    0     0     0     0     0</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5       0      0      0     0     0     0    0    0     0     0     0     0</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 8       0      0      0     0     0     0    0    0     0     0     0     0</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 9       0      0      0     0     0     0    0    0     0     0     0     0</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10      0      0      0     0     0     0    0    0     0     0     0     0</span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    A570D A67S A688V A701V A845D A845S A879S A930V D1118H D1118Y D111N D1163Y</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1      0    0     0     0     0     0     0     0      0      0     0      0</span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2      0    0     0     0     0     0     0     0      0      0     0      0</span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5      0    0     0     0     0     0     0     0      0      0     0      0</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 8      0    0     0     0     0     0     0     0      0      0     0      0</span></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 9      0    0     0     0     0     0     0     0      0      0     0      0</span></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10     0    0     0     0     0     0     0     0      0      0     0      0</span></span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    D138H D138Y D178N D215Y D253G D614G D80Y D936N D936Y E1144Q E1202Q E180V</span></span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1      0     0     0     0     0     1    0     0     0      0      0     0</span></span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2      0     0     0     0     0     1    0     0     0      0      0     0</span></span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5      0     0     0     0     0     1    0     0     0      0      1     0</span></span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 8      0     0     0     0     0     1    0     0     0      0      1     0</span></span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 9      0     0     0     0     0     1    0     0     0      0      0     0</span></span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10     0     0     0     0     0     1    0     0     0      0      0     0</span></span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    E484K E583D E780Q F220L F32L G1124V G1219C G142S G181R G252V G72R G75V G769V</span></span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1      0     0     0     0    0      0      0     0     0     0    0    0     0</span></span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2      0     0     0     0    0      0      0     0     0     0    0    0     0</span></span>
+<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5      0     0     0     0    0      0      0     0     0     0    0    0     0</span></span>
+<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 8      0     0     0     0    0      0      0     0     0     0    0    0     0</span></span>
+<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 9      0     0     0     0    0      0      0     0     0     0    0    0     0</span></span>
+<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10     0     0     0     0    0      0      0     0     0     0    0    0     0</span></span>
+<span id="cb6-37"><a href="#cb6-37" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    H1101Y H245Y H49Y H655Y H69Y K1073N K1191N L176F L18F L452R L54F L5F L822F</span></span>
+<span id="cb6-38"><a href="#cb6-38" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1       0     0    0     0    0      0      0     0    0     0    0   0     0</span></span>
+<span id="cb6-39"><a href="#cb6-39" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2       0     0    0     0    0      0      0     0    0     0    0   0     0</span></span>
+<span id="cb6-40"><a href="#cb6-40" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5       0     0    0     0    0      0      0     0    0     0    0   0     0</span></span>
+<span id="cb6-41"><a href="#cb6-41" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 8       0     0    0     0    0      0      0     0    0     0    0   0     0</span></span>
+<span id="cb6-42"><a href="#cb6-42" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 9       0     0    0     0    0      0      0     0    0     0    0   0     0</span></span>
+<span id="cb6-43"><a href="#cb6-43" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10      0     0    0     0    0      0      0     0    0     0    0   0     0</span></span>
+<span id="cb6-44"><a href="#cb6-44" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    M1229I M1237I M153I M177I N1187Y N501T N501Y N679K P1112L P1162S P1263L P26L</span></span>
+<span id="cb6-45"><a href="#cb6-45" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1       0      0     0     0      0     0     0     0      0      0      0    0</span></span>
+<span id="cb6-46"><a href="#cb6-46" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2       0      0     0     0      0     1     0     0      0      0      0    0</span></span>
+<span id="cb6-47"><a href="#cb6-47" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5       0      0     0     0      0     0     0     0      0      0      0    0</span></span>
+<span id="cb6-48"><a href="#cb6-48" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 8       0      0     0     0      0     0     0     0      0      0      0    0</span></span>
+<span id="cb6-49"><a href="#cb6-49" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 9       0      0     0     0      0     0     0     0      0      0      0    0</span></span>
+<span id="cb6-50"><a href="#cb6-50" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10      0      0     0     0      0     0     0     0      0      0      0    0</span></span>
+<span id="cb6-51"><a href="#cb6-51" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    P26S P330S P631S P681H P681L P681R P812L Q14H Q173K Q52H Q613H Q675H Q675R</span></span>
+<span id="cb6-52"><a href="#cb6-52" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1     0     0     0     0     0     0     0    0     0    0     0     0     0</span></span>
+<span id="cb6-53"><a href="#cb6-53" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2     0     0     0     0     0     0     0    0     0    0     0     0     0</span></span>
+<span id="cb6-54"><a href="#cb6-54" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5     0     0     0     0     0     0     0    0     0    0     0     0     0</span></span>
+<span id="cb6-55"><a href="#cb6-55" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 8     0     0     0     0     0     0     0    0     0    0     0     0     0</span></span>
+<span id="cb6-56"><a href="#cb6-56" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 9     0     0     0     0     0     0     0    0     0    0     0     0     0</span></span>
+<span id="cb6-57"><a href="#cb6-57" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10    0     0     0     1     0     0     0    0     0    0     0     0     0</span></span>
+<span id="cb6-58"><a href="#cb6-58" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    Q677H Q677P Q677R S1252F S12F S13I S221L S254F S256L S477N S494P S640F S698L</span></span>
+<span id="cb6-59"><a href="#cb6-59" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1      0     0     0      0    0    0     0     0     0     0     0     0     0</span></span>
+<span id="cb6-60"><a href="#cb6-60" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2      0     0     0      0    0    0     0     0     0     0     0     0     0</span></span>
+<span id="cb6-61"><a href="#cb6-61" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5      1     0     0      0    0    0     0     0     0     0     0     0     0</span></span>
+<span id="cb6-62"><a href="#cb6-62" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 8      1     0     0      0    0    0     0     0     0     0     0     0     0</span></span>
+<span id="cb6-63"><a href="#cb6-63" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 9      0     0     0      0    0    0     0     0     0     0     0     0     0</span></span>
+<span id="cb6-64"><a href="#cb6-64" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10     0     0     0      0    0    0     0     0     0     0     0     0     0</span></span>
+<span id="cb6-65"><a href="#cb6-65" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    S939F S982A S98F T1027I T1117I T20I T22I T29I T307I T478K T572I T632N T716I</span></span>
+<span id="cb6-66"><a href="#cb6-66" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1      0     0    0      0      0    0    0    0     0     0     0     0     0</span></span>
+<span id="cb6-67"><a href="#cb6-67" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2      0     0    0      0      0    0    0    0     0     0     0     0     0</span></span>
+<span id="cb6-68"><a href="#cb6-68" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5      0     0    0      0      0    0    0    0     0     0     0     0     0</span></span>
+<span id="cb6-69"><a href="#cb6-69" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 8      0     0    0      0      0    0    0    0     0     0     0     0     0</span></span>
+<span id="cb6-70"><a href="#cb6-70" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 9      0     0    0      0      0    0    0    0     0     0     0     0     0</span></span>
+<span id="cb6-71"><a href="#cb6-71" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10     0     0    0      0      0    0    0    0     0     0     0     0     0</span></span>
+<span id="cb6-72"><a href="#cb6-72" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    T732A T732S T747I T76I T778I T859I T95I V1104L V1122L V1164F V1176F V1228L</span></span>
+<span id="cb6-73"><a href="#cb6-73" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1      0     0     0    0     0     0    0      0      0      0      0      0</span></span>
+<span id="cb6-74"><a href="#cb6-74" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2      0     0     0    0     0     0    0      0      0      0      0      0</span></span>
+<span id="cb6-75"><a href="#cb6-75" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5      0     1     0    0     0     0    0      0      0      0      0      0</span></span>
+<span id="cb6-76"><a href="#cb6-76" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 8      0     1     0    0     0     0    0      0      0      0      0      0</span></span>
+<span id="cb6-77"><a href="#cb6-77" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 9      0     0     0    0     0     0    0      0      0      0      0      0</span></span>
+<span id="cb6-78"><a href="#cb6-78" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10     0     0     0    0     0     0    0      0      0      0      0      0</span></span>
+<span id="cb6-79"><a href="#cb6-79" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    V1264L V308L V320I V382L V483A V6F W152C W152L W258L</span></span>
+<span id="cb6-80"><a href="#cb6-80" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1       0     0     0     0     0   0     0     0     0</span></span>
+<span id="cb6-81"><a href="#cb6-81" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2       0     0     0     0     0   0     0     0     0</span></span>
+<span id="cb6-82"><a href="#cb6-82" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5       0     0     0     0     0   0     0     0     0</span></span>
+<span id="cb6-83"><a href="#cb6-83" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 8       0     0     0     0     0   0     0     0     0</span></span>
+<span id="cb6-84"><a href="#cb6-84" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 9       0     0     0     0     0   0     0     0     0</span></span>
+<span id="cb6-85"><a href="#cb6-85" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10      0     0     0     0     0   0     0     0     0</span></span></code></pre></div>
+</div>
+<div id="random-forest" class="section level2">
+<h2>3. Random Forest</h2>
+<p>Confusion Matrix, Feature Importances</p>
+<ol style="list-style-type: decimal">
+<li>Training the model</li>
+</ol>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>model <span class="ot">&lt;-</span> <span class="fu">ranger</span>(</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">formula         =</span> Geo_Location <span class="sc">~</span> ., </span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">data            =</span> train, </span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">num.trees       =</span> <span class="dv">500</span>,</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">mtry            =</span> <span class="dv">20</span>,</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">min.node.size   =</span> <span class="dv">2</span>,</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">sample.fraction =</span> <span class="fl">0.8</span>,</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">importance      =</span> <span class="st">&#39;impurity&#39;</span>,</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">seed            =</span> <span class="dv">71</span>)</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Growing trees.. Progress: 33%. Estimated remaining time: 1 minute, 4 seconds.</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Growing trees.. Progress: 66%. Estimated remaining time: 32 seconds.</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Growing trees.. Progress: 99%. Estimated remaining time: 1 seconds.</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(model)</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Ranger result</span></span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Call:</span></span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  ranger(formula = Geo_Location ~ ., data = train, num.trees = 500,      mtry = 20, min.node.size = 2, sample.fraction = 0.8, importance = &quot;impurity&quot;,      seed = 71) </span></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Type:                             Classification </span></span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Number of trees:                  500 </span></span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Sample size:                      32668 </span></span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Number of independent variables:  134 </span></span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Mtry:                             20 </span></span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Target node size:                 2 </span></span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Variable importance mode:         impurity </span></span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Splitrule:                        gini </span></span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; OOB prediction error:             9.90 %</span></span></code></pre></div>
+<p>Our model has an OOB Error rate of 10%.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>pred <span class="ot">&lt;-</span> <span class="fu">predict</span>(model, test)</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>test_error <span class="ot">&lt;-</span> <span class="fu">sum</span>(pred<span class="sc">$</span>predictions <span class="sc">!=</span> ytest) <span class="sc">/</span> <span class="fu">length</span>(ytest) <span class="sc">*</span> <span class="dv">100</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(test_error)</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 9.638702</span></span></code></pre></div>
+<p>The Test Error Rate is also around 10%.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>model<span class="sc">$</span>confusion.matrix</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;                         predicted</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; true                     Asia &amp; Europe &amp; Africa North America Oceania</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   Asia &amp; Europe &amp; Africa                    161          2475      16</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   North America                              86         22010      37</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   Oceania                                     3           617    7263</span></span></code></pre></div>
+<p>Due to an imbalanced data set, misclassiciation occurs in the category “Asia &amp; Europe &amp; Africa”. Further testing with a balanced dataset is needed.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>model<span class="sc">$</span>variable.importance <span class="sc">%&gt;%</span> </span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tidy</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">arrange</span>(<span class="fu">desc</span>(x)) <span class="sc">%&gt;%</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">top_n</span>(<span class="dv">10</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="fu">reorder</span>(names, x), x)) <span class="sc">+</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>() <span class="sc">+</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="st">&quot;Top 10 important variables&quot;</span>)</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Selecting by x</span></span></code></pre></div>
+<p><img src="data:image/png;base64,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" /><!-- --></p>
+<p>It seems like S477N is the most important variable in predicting the location of the sampling area.</p>
+</div>
+<div id="classification-and-regression-tree-cart-model-for-visualization" class="section level2">
+<h2>4. Classification And Regression Tree (CART) model: For Visualization</h2>
+<p>Pruned Tree Representation: for better visualization</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>tree <span class="ot">&lt;-</span> <span class="fu">rpart</span>(</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>  Geo_Location <span class="sc">~</span>., </span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> train, </span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="st">&quot;anova&quot;</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(tree)</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; n= 32668 </span></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; node), split, n, deviance, yval</span></span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;       * denotes terminal node</span></span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1) root 32668 9697.3800 2.160126  </span></span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   2) S477N&lt; 0.5 25385 3130.9380 1.921844 *</span></span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   3) S477N&gt;=0.5 7283  101.3651 2.990663 *</span></span></code></pre></div>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">fancyRpartPlot</span>(tree, <span class="at">caption =</span> <span class="cn">NULL</span>)</span></code></pre></div>
+<p><img src="data:image/png;base64,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" /><!-- --></p>
+</div>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
